@@ -1,0 +1,21 @@
+{
+  "name": "connstring-kit",
+  "version": "0.1.0",
+  "description": "Strict-by-default parser and CLI for database connection strings",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "connstring": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
