@@ -32,6 +32,22 @@ const SCHEME_RE = /^([a-zA-Z][a-zA-Z0-9+.-]*):\/\//;
 // host is either a bracketed IPv6 literal or anything but ':' and ',', with an optional port.
 const HOST_PORT_RE = /^(\[[^\]]+\]|[^:,]+)(?::(\d*))?$/;
 
+interface SchemeRule {
+  defaultPort?: number;
+  requireDatabase?: boolean;
+}
+
+// Rules for schemes common enough to be worth checking. Unknown schemes get
+// no default port and no database requirement, same as before this existed.
+const SCHEME_RULES: Record<string, SchemeRule> = {
+  postgres: { defaultPort: 5432, requireDatabase: true },
+  postgresql: { defaultPort: 5432, requireDatabase: true },
+  mysql: { defaultPort: 3306, requireDatabase: true },
+  mongodb: { defaultPort: 27017 },
+  redis: { defaultPort: 6379 },
+  rediss: { defaultPort: 6379 },
+};
+
 function fail(lenient: boolean, code: string, message: string): void {
   if (!lenient) {
     throw new ConnectionStringError(code, message);
@@ -114,6 +130,20 @@ export function parseConnectionString(input: string, options: ParseOptions = {})
   const hosts = parseHostList(hostSection, lenient);
   if (hosts.length === 0) {
     fail(lenient, 'missing-host', `connection string has no host: ${input}`);
+  }
+
+  const rule = SCHEME_RULES[scheme];
+  if (rule) {
+    if (rule.defaultPort !== undefined) {
+      for (const host of hosts) {
+        if (host.port === null) {
+          host.port = rule.defaultPort;
+        }
+      }
+    }
+    if (rule.requireDatabase && !database) {
+      fail(lenient, 'missing-database', `${scheme} connection strings require a database name: ${input}`);
+    }
   }
 
   const params = parseQuery(queryPart, lenient);

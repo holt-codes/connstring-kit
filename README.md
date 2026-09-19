@@ -97,10 +97,16 @@ non-zero and prints which rule was violated.
 - percent-encoded fields (username, password, database, query values) must
   decode cleanly
 - query strings may not repeat the same key twice
+- `postgres`, `postgresql`, and `mysql` require a database name in the path
 
 Each of these is relaxed under `--lenient` / `{ lenient: true }`, and it
 recovers with a reasonable default (dropping a bad port, keeping the last
 value of a repeated key, and so on) rather than guessing silently.
+
+A handful of schemes also get a default port filled in when a host omits
+one: `postgres`/`postgresql` (5432), `mysql` (3306), `mongodb` (27017), and
+`redis`/`rediss` (6379). This happens regardless of `--lenient` — it's a
+default, not an error recovery.
 
 ## License
 
