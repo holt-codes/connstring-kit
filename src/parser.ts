@@ -242,3 +242,81 @@ export function redactConnectionString(input: string, options: ParseOptions = {}
   }
   return formatConnectionString(parsed);
 }
+
+export interface ConnectionStringParts {
+  scheme: string;
+  username?: string | null;
+  password?: string | null;
+  hosts: HostPort[];
+  database?: string | null;
+  params?: Record<string, string>;
+}
+
+/**
+ * Builds a connection string from parts, applying the same strict-by-default
+ * checks as parseConnectionString (a scheme is required, at least one host
+ * is required, ports must be in range, schemes that require a database get
+ * one). Unlike parseConnectionString, the inputs here are already-decoded
+ * values, not raw URI text, so they're percent-encoded on the way out rather
+ * than decoded on the way in.
+ */
+export function buildConnectionString(parts: ConnectionStringParts, options: ParseOptions = {}): string {
+  const lenient = options.lenient === true;
+
+  let scheme = parts.scheme;
+  if (!scheme) {
+    fail(lenient, 'missing-scheme', 'a scheme is required to build a connection string');
+    scheme = '';
+  } else {
+    scheme = scheme.toLowerCase();
+  }
+
+  let username = parts.username ?? null;
+  if (username === '') {
+    fail(lenient, 'empty-username', 'username is present but empty');
+    username = null;
+  }
+  const password = parts.password ?? null;
+  if (password !== null && username === null) {
+    fail(lenient, 'password-without-username', 'password given without a username');
+  }
+
+  if (parts.hosts.length === 0) {
+    fail(lenient, 'missing-host', 'connection string has no host');
+  }
+
+  const hosts: HostPort[] = parts.hosts.map((h) => {
+    let port = h.port;
+    if (port === undefined) {
+      port = null;
+    } else if (port !== null && (!Number.isInteger(port) || port < 1 || port > 65535)) {
+      fail(lenient, 'invalid-port', `port ${port} for host "${h.host}" is out of range`);
+      port = null;
+    }
+    return { host: h.host, port };
+  });
+
+  const rule = SCHEME_RULES[scheme];
+  if (rule) {
+    if (rule.defaultPort !== undefined) {
+      for (const host of hosts) {
+        if (host.port === null) {
+          host.port = rule.defaultPort;
+        }
+      }
+    }
+    if (rule.requireDatabase && !parts.database) {
+      fail(lenient, 'missing-database', `${scheme} connection strings require a database name`);
+    }
+  }
+
+  return formatConnectionString({
+    scheme,
+    username,
+    password,
+    hosts,
+    database: parts.database ?? null,
+    params: parts.params ?? {},
+    raw: '',
+  });
+}

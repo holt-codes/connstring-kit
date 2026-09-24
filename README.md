@@ -77,6 +77,28 @@ redactConnectionString('mysql://root:hunter2@127.0.0.1:3306/app');
 // 'mysql://root:****@127.0.0.1:3306/app'
 ```
 
+`buildConnectionString` goes the other way: give it parts and it validates
+and serializes them, using the same strict-by-default rules as parsing (and
+the same `{ lenient: true }` escape hatch).
+
+```ts
+import { buildConnectionString } from './dist/index.js';
+
+buildConnectionString({
+  scheme: 'postgres',
+  username: 'app_user',
+  password: 'hunter2',
+  hosts: [{ host: 'db.internal', port: null }],
+  database: 'orders',
+  params: { sslmode: 'require' },
+});
+// 'postgres://app_user:hunter2@db.internal:5432/orders?sslmode=require'
+// (port null + postgres's default port rule fills in 5432)
+
+buildConnectionString({ scheme: 'postgres', hosts: [{ host: 'db.internal', port: null }] });
+// throws ConnectionStringError('missing-database', ...) — postgres requires one
+```
+
 ## CLI usage
 
 ```
